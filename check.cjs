@@ -10,7 +10,9 @@ const element = selector => {
   });
   return elements.get(selector);
 };
+let mobile = false;
 const context = vm.createContext({
+  window: {matchMedia: () => ({get matches(){return mobile}, addEventListener(){}})},
   document: { querySelector: element, querySelectorAll: () => [], addEventListener() {} },
   cancelAnimationFrame() {}, requestAnimationFrame() { return 1; }, performance: { now: () => 0 },
 });
@@ -64,7 +66,7 @@ assert.equal(run('segments.length'),2);
 element('#undoLine').onclick();
 assert.equal(run('segments.length'),1);
 board.onpointerdown(pointer(400,220));
-board.onpointercancel();
+board.onpointercancel(pointer(400,220));
 assert.equal(run('segments.length'),1);
 assert.equal(run('draft'),null);
 element('#clearLines').onclick();
@@ -87,3 +89,19 @@ assert.equal(run('lineLength(segments[0])'),5);
 run('start(0); start(6)');
 assert.equal(run('segments.length'),0);
 console.log('PASS: seven sections; radius/diameter; quiz; drawing snap, length, limit, undo, clear, cancellation, multitouch and keyboard');
+
+mobile = true;
+for (const page of [0, 2, 3, 4, 6]) {
+  run(`start(${page})`);
+  assert.match(element('#canvas').innerHTML, /viewBox="140 0 450 450"/);
+}
+const touch = (x,y,id=1) => ({...pointer(x,y,id),pointerType:'touch'});
+board.onpointerdown(touch(385,220));
+board.onpointercancel(touch(385,220,2));
+assert.notEqual(run('draft'),null); // Another finger must not cancel the active stroke.
+board.onpointerup(touch(520,220));
+assert.equal(run('lineLength(segments[0])'),5); // Larger touch snap zones.
+mobile = false;
+run('start(6)');
+assert.match(element('#canvas').innerHTML, /viewBox="0 0 730 450"/);
+console.log('PASS: mobile SVG framing, touch snapping, secondary touch cancellation, desktop framing');
